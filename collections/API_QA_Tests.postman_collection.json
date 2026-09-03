@@ -1,0 +1,565 @@
+{
+  "info": {
+    "name": "API QA Tests - ReqRes",
+    "description": "Coleção de testes automatizados de API para fins de portfólio de QA. Testa a API pública ReqRes (https://reqres.in).\n\n📁 ORGANIZAÇÃO: os requests são agrupados por PONTO DA API (Login, Cadastro, Criação de usuário, Consulta, Atualização, Remoção), facilitando identificar rapidamente o que cada pasta cobre.\n\n♻️ REUTILIZAÇÃO DE CÓDIGO: todas as validações comuns (status code, tempo de resposta, campos obrigatórios, mensagens de erro) ficam centralizadas em uma biblioteca de funções chamada 'QAHelpers', definida UMA ÚNICA VEZ na variável de coleção 'helpersLib'. Cada request apenas carrega essa biblioteca (1 linha de 'eval') e chama as funções prontas, em vez de reescrever a lógica de teste em cada lugar.\n\n🌍 VALIDAÇÃO GLOBAL: o teste de tempo de resposta roda automaticamente em TODOS os requests, configurado uma única vez no nível da coleção — nenhum request precisa declarar isso individualmente.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "https://reqres.in/api" },
+    {
+      "key": "helpersLib",
+      "value": "if (typeof QAHelpers === 'undefined') {\n  var QAHelpers = {\n    /* Valida se o status code da resposta é o esperado */\n    validarStatusCode: function (statusEsperado) {\n      pm.test('Status code é ' + statusEsperado, function () {\n        pm.response.to.have.status(statusEsperado);\n      });\n    },\n    /* Valida se um objeto JSON contém uma lista de campos obrigatórios */\n    validarCamposObrigatorios: function (objeto, campos, nomeObjeto) {\n      nomeObjeto = nomeObjeto || 'objeto';\n      pm.test(nomeObjeto + ' contém os campos obrigatórios (' + campos.join(', ') + ')', function () {\n        campos.forEach(function (campo) {\n          pm.expect(objeto).to.have.property(campo);\n        });\n      });\n    },\n    /* Valida se a resposta veio com o corpo vazio (usado em 404 da ReqRes) */\n    validarCorpoVazio: function () {\n      pm.test('Corpo da resposta está vazio', function () {\n        pm.expect(pm.response.text()).to.eql('{}');\n      });\n    },\n    /* Valida a mensagem de erro retornada pela API */\n    validarMensagemErro: function (mensagemEsperada) {\n      pm.test('Mensagem de erro é: \\\"' + mensagemEsperada + '\\\"', function () {\n        var jsonData = pm.response.json();\n        pm.expect(jsonData).to.have.property('error');\n        pm.expect(jsonData.error).to.eql(mensagemEsperada);\n      });\n    },\n    /* Valida que um valor de campo é exatamente o esperado */\n    validarValorCampo: function (jsonData, caminhoCampo, valorEsperado, descricao) {\n      pm.test(descricao || ('Campo ' + caminhoCampo + ' é igual a ' + valorEsperado), function () {\n        var valor = caminhoCampo.split('.').reduce(function (obj, chave) { return obj ? obj[chave] : undefined; }, jsonData);\n        pm.expect(valor).to.eql(valorEsperado);\n      });\n    },\n    /* Salva um valor em uma variável de ambiente e loga no console, para rastreabilidade */\n    salvarVariavel: function (nome, valor) {\n      pm.environment.set(nome, valor);\n      console.log('[QAHelpers] Variável \\\"' + nome + '\\\" salva com valor: ' + valor);\n    },\n    /* Valida o tempo de resposta (usada globalmente no nível da coleção) */\n    validarTempoResposta: function (maxMs) {\n      maxMs = maxMs || 2000;\n      pm.test('Tempo de resposta abaixo de ' + maxMs + 'ms', function () {\n        pm.expect(pm.response.responseTime).to.be.below(maxMs);\n      });\n    }\n  };\n}"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// ── Executado ANTES de TODOS os requests da coleção ──",
+          "// Header exigido pela ReqRes desde 2024 para uso do plano gratuito.",
+          "// Fica centralizado aqui para não precisar repetir em cada request.",
+          "pm.request.headers.add({ key: 'x-api-key', value: 'reqres-free-v1' });"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// ── Executado DEPOIS de TODOS os requests da coleção ──",
+          "// Carrega a biblioteca reutilizável de funções de validação (QAHelpers).",
+          "eval(pm.collectionVariables.get('helpersLib'));",
+          "",
+          "// Validação global: todo request da coleção precisa responder em menos de 2s.",
+          "// Nenhum request individual precisa declarar isso — é herdado daqui.",
+          "QAHelpers.validarTempoResposta(2000);"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Autenticação › Login",
+      "description": "Ponto da API: **POST /login**. Cobre o fluxo de autenticação de um usuário já cadastrado, incluindo o caminho feliz e a principal validação de erro (senha ausente).",
+      "item": [
+        {
+          "name": "POST - Login com sucesso",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"eve.holt@reqres.in\",\n    \"password\": \"cityslicka\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Carrega a biblioteca reutilizável (mesma função usada em toda a coleção).",
+                  "eval(pm.collectionVariables.get('helpersLib'));",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "QAHelpers.validarStatusCode(200);",
+                  "QAHelpers.validarCamposObrigatorios(jsonData, ['token'], 'Resposta do login');",
+                  "QAHelpers.salvarVariavel('authToken', jsonData.token);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "POST - Login sem senha (erro 400)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"peter@klaven\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "eval(pm.collectionVariables.get('helpersLib'));",
+                  "",
+                  "QAHelpers.validarStatusCode(400);",
+                  "QAHelpers.validarMensagemErro('Missing password');"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": " Autenticação › Cadastro",
+      "description": "Ponto da API: **POST /register**. Cobre o fluxo de criação de credenciais de acesso (diferente de 'criar usuário' — aqui é especificamente o cadastro de login/senha).",
+      "item": [
+        {
+          "name": "POST - Cadastro com sucesso",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"eve.holt@reqres.in\",\n    \"password\": \"pistol\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["register"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "eval(pm.collectionVariables.get('helpersLib'));",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "QAHelpers.validarStatusCode(200);",
+                  "QAHelpers.validarCamposObrigatorios(jsonData, ['id', 'token'], 'Resposta do cadastro');",
+                  "QAHelpers.salvarVariavel('authToken', jsonData.token);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "POST - Cadastro sem senha (erro 400)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"sydney@fife\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["register"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "eval(pm.collectionVariables.get('helpersLib'));",
+                  "",
+                  "QAHelpers.validarStatusCode(400);",
+                  "QAHelpers.validarMensagemErro('Missing password');"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Usuários › Consultas",
+      "description": "Ponto da API: **GET /users**. Cobre listagem paginada e busca por ID, incluindo o caso de usuário inexistente.",
+      "item": [
+        {
+          "name": "GET - Listar usuários (paginado)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users?page=2",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"],
+              "query": [{ "key": "page", "value": "2" }]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "eval(pm.collectionVariables.get('helpersLib'));",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "QAHelpers.validarStatusCode(200);",
+                  "QAHelpers.validarCamposObrigatorios(jsonData, ['page', 'data'], 'Resposta da listagem');",
+                  "QAHelpers.validarValorCampo(jsonData, 'page', 2, 'Página retornada é a página solicitada');",
+                  "",
+                  "pm.test('Cada usuário da lista possui os campos obrigatórios', function () {",
+                  "    jsonData.data.forEach(function (user) {",
+                  "        QAHelpers.validarCamposObrigatorios(user, ['id', 'email', 'first_name', 'last_name', 'avatar'], 'Usuário ' + user.id);",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "GET - Buscar usuário existente",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/2",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "2"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "eval(pm.collectionVariables.get('helpersLib'));",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "QAHelpers.validarStatusCode(200);",
+                  "QAHelpers.validarValorCampo(jsonData, 'data.id', 2, 'ID do usuário retornado é o esperado');",
+                  "QAHelpers.salvarVariavel('userId', jsonData.data.id);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "GET - Buscar usuário inexistente (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/23",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "23"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "eval(pm.collectionVariables.get('helpersLib'));",
+                  "",
+                  "QAHelpers.validarStatusCode(404);",
+                  "QAHelpers.validarCorpoVazio();"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Usuários › Criação",
+      "description": "Ponto da API: **POST /users**. Cobre a criação de um novo usuário no sistema.",
+      "item": [
+        {
+          "name": "POST - Criar usuário",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Ana Souza\",\n    \"job\": \"QA Engineer\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "eval(pm.collectionVariables.get('helpersLib'));",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "QAHelpers.validarStatusCode(201);",
+                  "QAHelpers.validarCamposObrigatorios(jsonData, ['id', 'name', 'job', 'createdAt'], 'Usuário criado');",
+                  "QAHelpers.validarValorCampo(jsonData, 'name', 'Ana Souza', 'Nome enviado foi persistido corretamente');",
+                  "QAHelpers.salvarVariavel('createdUserId', jsonData.id);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Usuários › Atualização",
+      "description": "Pontos da API: **PUT /users/{id}** e **PATCH /users/{id}**. Cobre atualização completa e parcial de um usuário já existente (depende do 'userId' salvo em Usuários › Consultas).",
+      "item": [
+        {
+          "name": "PUT - Atualizar usuário (completo)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Ana Souza\",\n    \"job\": \"QA Lead\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{userId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "eval(pm.collectionVariables.get('helpersLib'));",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "QAHelpers.validarStatusCode(200);",
+                  "QAHelpers.validarCamposObrigatorios(jsonData, ['job', 'updatedAt'], 'Usuário atualizado');",
+                  "QAHelpers.validarValorCampo(jsonData, 'job', 'QA Lead', 'Campo job foi atualizado corretamente');"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "PATCH - Atualizar usuário (parcial)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"job\": \"Senior QA Engineer\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{userId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "eval(pm.collectionVariables.get('helpersLib'));",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "QAHelpers.validarStatusCode(200);",
+                  "QAHelpers.validarValorCampo(jsonData, 'job', 'Senior QA Engineer', 'Campo job foi atualizado parcialmente');"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Usuários › Remoção",
+      "description": "Ponto da API: **DELETE /users/{id}**. Cobre a remoção de um usuário (depende do 'userId' salvo em Usuários › Consultas).",
+      "item": [
+        {
+          "name": "DELETE - Remover usuário",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{userId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "eval(pm.collectionVariables.get('helpersLib'));",
+                  "",
+                  "QAHelpers.validarStatusCode(204);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Fluxo Ponta a Ponta (E2E)",
+      "description": "Encadeia os MESMOS pontos da API testados individualmente acima (Login → Criar usuário → Atualizar → Remover), simulando a jornada real de um usuário. Reaproveita a mesma biblioteca QAHelpers usada em todas as outras pastas, garantindo consistência entre os testes unitários por endpoint e o teste de fluxo completo.",
+      "item": [
+        {
+          "name": "1. Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"eve.holt@reqres.in\",\n    \"password\": \"cityslicka\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "eval(pm.collectionVariables.get('helpersLib'));",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "QAHelpers.validarStatusCode(200);",
+                  "QAHelpers.salvarVariavel('authToken', jsonData.token);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "2. Criar usuário",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Fluxo E2E\",\n    \"job\": \"QA Engineer\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "eval(pm.collectionVariables.get('helpersLib'));",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "QAHelpers.validarStatusCode(201);",
+                  "QAHelpers.salvarVariavel('e2eUserId', jsonData.id);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "3. Atualizar usuário criado",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"job\": \"QA Lead\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/{{e2eUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{e2eUserId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "eval(pm.collectionVariables.get('helpersLib'));",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "QAHelpers.validarStatusCode(200);",
+                  "QAHelpers.validarValorCampo(jsonData, 'job', 'QA Lead', 'Usuário do fluxo E2E foi atualizado');"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "4. Remover usuário criado",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{e2eUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{e2eUserId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "eval(pm.collectionVariables.get('helpersLib'));",
+                  "",
+                  "QAHelpers.validarStatusCode(204);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    }
+  ]
+}

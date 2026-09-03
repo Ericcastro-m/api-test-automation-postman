@@ -1,0 +1,16 @@
+{
+  "name": "api-test-automation-postman",
+  "version": "1.0.0",
+  "description": "Projeto de automação de testes de API (Postman/Newman) com foco em QA, testando a ReqRes API.",
+  "scripts": {
+    "test": "newman run collections/API_QA_Tests.postman_collection.json -e environments/dev.postman_environment.json --reporters cli,htmlextra --reporter-htmlextra-export reports/report.html",
+    "test:junit": "newman run collections/API_QA_Tests.postman_collection.json -e environments/dev.postman_environment.json --reporters cli,junit --reporter-junit-export reports/junit-report.xml"
+  },
+  "keywords": ["qa", "api-testing", "postman", "newman", "automation", "portfolio"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "newman": "^6.2.1",
+    "newman-reporter-htmlextra": "^1.23.1"
+  }
+}

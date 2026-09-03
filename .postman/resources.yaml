@@ -1,0 +1,9 @@
+# Use this workspace to collaborate
+workspace:
+  id: df989faa-62f4-4498-82ea-071324fbd240
+
+localResources:
+  collections:
+    - ../collections/API_QA_Tests.postman_collection.json
+  environments:
+    - ../environments/dev.postman_environment.json
