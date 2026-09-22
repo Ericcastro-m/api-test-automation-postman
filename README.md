@@ -183,16 +183,6 @@ O pipeline roda automaticamente em todo `push`/`pull request` para a branch `mai
 
 ---
 
-## 🚀 Possíveis evoluções
-
-- [ ] Adicionar validação de schema com JSON Schema (`tv4`/`ajv`) para contratos mais rígidos.
-- [ ] Adicionar testes de dados (data-driven) usando arquivo CSV/JSON de massa de dados.
-- [ ] Adicionar testes de performance básicos (tempo de resposta por endpoint).
-- [ ] Notificar resultados do CI em um canal do Slack/Teams.
-- [ ] Publicar o relatório HTML automaticamente no GitHub Pages.
-
----
-
 ## 👩‍💻 Sobre
 
 Projeto criado para fins de estudo e portfólio, demonstrando uma abordagem de QA para automação de testes de API usando Postman/Newman.
